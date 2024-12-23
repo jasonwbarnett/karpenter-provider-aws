@@ -21,6 +21,7 @@ import (
 
 	lop "github.com/samber/lo/parallel"
 	"go.uber.org/multierr"
+	"knative.dev/pkg/logging"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -50,6 +51,8 @@ func (c *Controller) Reconcile(ctx context.Context, _ reconcile.Request) (reconc
 			errs[i] = err
 		}
 	})
+	logging.FromContext(ctx).With("debugging-topic", "on-demand + extraHourlyCostPerHost").Debugf("after: %+v", c.pricingProvider.OnDemandPrices())
+	logging.FromContext(ctx).With("debugging-topic", "spot + extraHourlyCostPerHost").Debugf("after: %+v", c.pricingProvider.SpotPrices())
 	if err := multierr.Combine(errs...); err != nil {
 		return reconcile.Result{}, fmt.Errorf("updating pricing, %w", err)
 	}

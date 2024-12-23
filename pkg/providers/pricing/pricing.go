@@ -49,6 +49,8 @@ type Provider interface {
 	SpotPrice(string, string) (float64, bool)
 	UpdateOnDemandPricing(context.Context) error
 	UpdateSpotPricing(context.Context) error
+	OnDemandPrices() map[string]float64
+	SpotPrices() map[string]zonal
 }
 
 // DefaultProvider provides actual pricing data to the AWS cloud provider to allow it to make more informed decisions
@@ -69,6 +71,8 @@ type DefaultProvider struct {
 	muSpot             sync.RWMutex
 	spotPrices         map[string]zonal
 	spotPricingUpdated bool
+
+	extraHourlyCostPerHost float64 // e.g. Datadog Infrastructure/APM per-host costs
 }
 
 // zonalPricing is used to capture the per-zone price
@@ -107,10 +111,11 @@ func NewAPI(sess *session.Session, region string) pricingiface.PricingAPI {
 
 func NewDefaultProvider(_ context.Context, pricing pricingiface.PricingAPI, ec2Api ec2iface.EC2API, region string) *DefaultProvider {
 	p := &DefaultProvider{
-		region:  region,
-		ec2:     ec2Api,
-		pricing: pricing,
-		cm:      pretty.NewChangeMonitor(),
+		region:                 region,
+		ec2:                    ec2Api,
+		pricing:                pricing,
+		cm:                     pretty.NewChangeMonitor(),
+		extraHourlyCostPerHost: float64( /* DD Infrastructure (Pro) */ 18+ /* DD APM (Enterprise) */ 36) / 30 / 24,
 	}
 	// sets the pricing data from the static default state for the provider
 	p.Reset()
@@ -219,6 +224,12 @@ func (p *DefaultProvider) UpdateOnDemandPricing(ctx context.Context) error {
 	}
 
 	p.onDemandPrices = lo.Assign(onDemandPrices, onDemandMetalPrices)
+	// debugging
+	logging.FromContext(ctx).With("debugging-topic", "on-demand + extraHourlyCostPerHost").Debugf("before: %+v", p.onDemandPrices)
+	// add extra costs to hourly prices
+	for k, v := range p.onDemandPrices {
+		p.onDemandPrices[k] = v + p.extraHourlyCostPerHost
+	}
 	if p.cm.HasChanged("on-demand-prices", p.onDemandPrices) {
 		logging.FromContext(ctx).With("instance-type-count", len(p.onDemandPrices)).Debugf("updated on-demand pricing")
 	}
@@ -379,13 +390,16 @@ func (p *DefaultProvider) UpdateSpotPricing(ctx context.Context) error {
 		return fmt.Errorf("no spot pricing found")
 	}
 
+	// debugging
+	logging.FromContext(ctx).With("debugging-topic", "spot + extraHourlyCostPerHost").Debugf("before: %+v", prices)
+
 	totalOfferings := 0
 	for it, zoneData := range prices {
 		if _, ok := p.spotPrices[it]; !ok {
 			p.spotPrices[it] = newZonalPricing(0)
 		}
 		for zone, price := range zoneData {
-			p.spotPrices[it].prices[zone] = price
+			p.spotPrices[it].prices[zone] = price + p.extraHourlyCostPerHost
 		}
 		totalOfferings += len(zoneData)
 	}
@@ -415,6 +429,14 @@ func populateInitialSpotPricing(pricing map[string]float64) map[string]zonal {
 		m[it] = newZonalPricing(price)
 	}
 	return m
+}
+
+// debugging
+func (p *DefaultProvider) OnDemandPrices() map[string]float64 {
+	return p.onDemandPrices
+}
+func (p *DefaultProvider) SpotPrices() map[string]zonal {
+	return p.spotPrices
 }
 
 func (p *DefaultProvider) Reset() {
