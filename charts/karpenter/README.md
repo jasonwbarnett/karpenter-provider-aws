@@ -102,6 +102,7 @@ cosign verify public.ecr.aws/karpenter/karpenter:0.36.2 \
 | settings.interruptionQueue | string | `""` | interruptionQueue is disabled if not specified. Enabling interruption handling may require additional permissions on the controller service account. Additional permissions are outlined in the docs. |
 | settings.isolatedVPC | bool | `false` | If true then assume we can't reach AWS services which don't have a VPC endpoint This also has the effect of disabling look-ups to the AWS pricing endpoint |
 | settings.reservedENIs | string | `"0"` | Reserved ENIs are not included in the calculations for max-pods or kube-reserved This is most often used in the VPC CNI custom networking setup https://docs.aws.amazon.com/eks/latest/userguide/cni-custom-network.html |
+| settings.extraHourlyCostPerHost | float | `0.0` | Extra hourly cost per host to be added to the cost of each host |
 | settings.vmMemoryOverheadPercent | float | `0.075` | The VM memory overhead as a percent that will be subtracted from the total memory for all instance types |
 | strategy | object | `{"rollingUpdate":{"maxUnavailable":1}}` | Strategy for updating the pod. |
 | terminationGracePeriodSeconds | string | `nil` | Override the default termination grace period for the pod. |
@@ -110,4 +111,3 @@ cosign verify public.ecr.aws/karpenter/karpenter:0.36.2 \
 | webhook.enabled | bool | `false` | Whether to enable the webhooks and webhook permissions. |
 | webhook.metrics.port | int | `8001` | The container port to use for webhook metrics. |
 | webhook.port | int | `8443` | The container port to use for the webhook. |
-
