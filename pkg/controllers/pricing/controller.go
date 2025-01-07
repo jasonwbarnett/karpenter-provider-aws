@@ -51,8 +51,8 @@ func (c *Controller) Reconcile(ctx context.Context, _ reconcile.Request) (reconc
 			errs[i] = err
 		}
 	})
-	logging.FromContext(ctx).With("debugging-topic", "on-demand + extraHourlyCostPerHost").Infof("after: %+v", c.pricingProvider.OnDemandPrices())
-	logging.FromContext(ctx).With("debugging-topic", "spot + extraHourlyCostPerHost").Infof("after: %+v", c.pricingProvider.SpotPrices())
+	logging.FromContext(ctx).With("debugging-topic", "on-demand + extra hourly cost per host").Debugf("after: %+v", c.pricingProvider.OnDemandPrices())
+	logging.FromContext(ctx).With("debugging-topic", "spot + extra hourly cost per host").Debugf("after: %+v", c.pricingProvider.SpotPrices())
 	if err := multierr.Combine(errs...); err != nil {
 		return reconcile.Result{}, fmt.Errorf("updating pricing, %w", err)
 	}
