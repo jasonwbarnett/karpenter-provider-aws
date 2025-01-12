@@ -23,7 +23,8 @@ HELM_OPTS ?= --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${K
 # CR for local builds of Karpenter
 KARPENTER_NAMESPACE ?= kube-system
 KARPENTER_VERSION ?= $(shell git tag --sort=committerdate | tail -1 | cut -d"v" -f2)
-KO_DOCKER_REPO ?= ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/dev
+UUID := $(shell uuidgen | tr "[:upper:]" "[:lower:]")
+KO_DOCKER_REPO ?= ttl.sh/karpenter-provider-aws-${UUID}
 KOCACHE ?= ~/.ko
 
 # Common Directories
