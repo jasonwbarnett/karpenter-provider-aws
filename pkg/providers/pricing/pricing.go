@@ -49,8 +49,6 @@ type Provider interface {
 	SpotPrice(string, string) (float64, bool)
 	UpdateOnDemandPricing(context.Context) error
 	UpdateSpotPricing(context.Context) error
-	OnDemandPrices() map[string]float64
-	SpotPrices() map[string]zonal
 }
 
 // DefaultProvider provides actual pricing data to the AWS cloud provider to allow it to make more informed decisions
@@ -221,12 +219,12 @@ func (p *DefaultProvider) UpdateOnDemandPricing(ctx context.Context) error {
 	}
 
 	p.onDemandPrices = lo.Assign(onDemandPrices, onDemandMetalPrices)
-	// debugging
 	logging.FromContext(ctx).With("debugging-topic", "on-demand + extra hourly cost per host").Debugf("before: %+v", p.onDemandPrices)
 	// Add extra hourly costs to hourly prices
 	for k, v := range p.onDemandPrices {
 		p.onDemandPrices[k] = v + options.FromContext(ctx).ExtraHourlyCostPerHost
 	}
+	logging.FromContext(ctx).With("debugging-topic", "on-demand + extra hourly cost per host").Debugf("after: %+v", p.onDemandPrices)
 	if p.cm.HasChanged("on-demand-prices", p.onDemandPrices) {
 		logging.FromContext(ctx).With("instance-type-count", len(p.onDemandPrices)).Debugf("updated on-demand pricing")
 	}
@@ -387,7 +385,6 @@ func (p *DefaultProvider) UpdateSpotPricing(ctx context.Context) error {
 		return fmt.Errorf("no spot pricing found")
 	}
 
-	// debugging
 	logging.FromContext(ctx).With("debugging-topic", "spot + extra hourly cost per host").Debugf("before: %+v", prices)
 
 	totalOfferings := 0
@@ -400,6 +397,8 @@ func (p *DefaultProvider) UpdateSpotPricing(ctx context.Context) error {
 		}
 		totalOfferings += len(zoneData)
 	}
+
+	logging.FromContext(ctx).With("debugging-topic", "spot + extra hourly cost per host").Debugf("after: %+v", p.spotPrices)
 
 	p.spotPricingUpdated = true
 	if p.cm.HasChanged("spot-prices", p.spotPrices) {
@@ -426,16 +425,6 @@ func populateInitialSpotPricing(pricing map[string]float64) map[string]zonal {
 		m[it] = newZonalPricing(price)
 	}
 	return m
-}
-
-// Expose unexported field for debugging/testing
-func (p *DefaultProvider) OnDemandPrices() map[string]float64 {
-	return p.onDemandPrices
-}
-
-// Expose unexported field for debugging/testing
-func (p *DefaultProvider) SpotPrices() map[string]zonal {
-	return p.spotPrices
 }
 
 func (p *DefaultProvider) Reset() {
